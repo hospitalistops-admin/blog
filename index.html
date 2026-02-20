@@ -1,0 +1,21 @@
+---
+layout: default
+---
+<div class="index-header">
+  <h1>Hospitalist Ops</h1>
+  <p>Rethinking medicine with data, probability, and synthetic minds.</p>
+</div>
+
+<ul class="post-list">
+  {% for post in site.posts %}
+  <li class="post-list-item">
+    <a href="{{ post.url | relative_url }}">
+      <span class="post-list-date">{{ post.date | date: "%B %d, %Y" }}</span>
+      <h2 class="post-list-title">{{ post.title }}</h2>
+      {% if post.subtitle %}
+      <p class="post-list-excerpt">{{ post.subtitle }}</p>
+      {% endif %}
+    </a>
+  </li>
+  {% endfor %}
+</ul>

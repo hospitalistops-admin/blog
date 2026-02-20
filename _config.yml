@@ -1,0 +1,29 @@
+title: Hospitalist Ops
+description: Rethinking medicine with data, probability, and synthetic minds.
+url: "https://hospitalistops-admin.github.io"
+baseurl: "/blog"
+markdown: kramdown
+permalink: /:year/:month/:day/:title/
+
+# Build settings
+theme: null
+plugins:
+  - jekyll-seo-tag
+
+# Author
+author:
+  name: Akash Venkataramanan
+  email: akashvenkataramanan2@gmail.com
+
+# Collections
+collections:
+  interactives:
+    output: true
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
