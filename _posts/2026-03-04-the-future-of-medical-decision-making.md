@@ -1,3 +1,11 @@
+---
+layout: post
+title: "The Future of Medical Decision Making"
+subtitle: "What happens when atypical cases meet the limits of pattern recognition?"
+date: 2026-03-04
+tags: [clinical-reasoning, future-of-medicine]
+---
+
 55M with uncontrolled diabetes mellitus and compensated cirrhosis comes to the hospital for ankle pain for the last month. He has been having fevers for the last week as well. The right ankle has been swollen and tender, but he is still able to bear weight on it. He is still able to walk up to 1 mile. He denies trauma, falls. He denies swelling in other joints or prior episodes. The pain is somewhat relieved with tylenol. The remaining review of systems is negative. He takes metformin for diabetes but no other medications. 
 Vitals signs are notable for tachycardia
 Examination of the joint reveals tenderness around the right ankle, swelling
