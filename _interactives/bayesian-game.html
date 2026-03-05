@@ -1,0 +1,67 @@
+---
+layout: game
+title: "The Bayesian Diagnostic Game"
+permalink: /interactives/bayesian-game/
+---
+
+<div id="game-container">
+  <!-- Progress bar -->
+  <div id="progress-bar">
+    <div class="progress-steps">
+      <div class="progress-step" data-stage="0"><span class="step-label">CC</span></div>
+      <div class="progress-step" data-stage="1"><span class="step-label">Hx</span></div>
+      <div class="progress-step" data-stage="2"><span class="step-label">Vitals</span></div>
+      <div class="progress-step" data-stage="3"><span class="step-label">Exam</span></div>
+      <div class="progress-step" data-stage="4"><span class="step-label">Labs</span></div>
+      <div class="progress-step" data-stage="5"><span class="step-label">Imaging</span></div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <div class="game-layout">
+    <!-- Left panel: visualization -->
+    <div class="viz-panel" id="viz-panel">
+      <div id="bubble-container">
+        <svg id="bubble-svg"></svg>
+      </div>
+      <div id="certainty-meter">
+        <span class="certainty-label">Diagnostic Certainty</span>
+        <span class="certainty-value" id="certainty-value">0%</span>
+      </div>
+      <div id="bar-section">
+        <button class="details-toggle" id="details-toggle">Details</button>
+        <div class="bar-chart-container" id="bar-chart" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Right panel: game content -->
+    <div class="content-panel" id="content-panel">
+      <!-- Intro screen -->
+      <div id="intro-screen">
+        <h1 class="game-title">The Bayesian Diagnostic Game</h1>
+        <p class="game-subtitle">A 68-year-old man arrives in your ED with shortness of breath. Work through the clinical encounter and watch diagnosis probabilities shift in real time.</p>
+        <p class="game-description">At each stage, make the clinical choices you think fit this patient. Every finding applies likelihood ratios that update the differential through Bayes' theorem.</p>
+        <button class="btn-primary" id="start-btn">Begin Encounter</button>
+      </div>
+
+      <!-- Stage content (populated by JS) -->
+      <div id="stage-content" style="display:none;">
+        <div class="stage-header">
+          <h2 id="stage-title"></h2>
+          <p id="stage-description" class="stage-desc"></p>
+        </div>
+        <div id="questions-container"></div>
+        <div class="narration-box" id="narration-box" style="display:none;"></div>
+        <button class="btn-primary" id="next-btn" style="display:none;">Continue</button>
+      </div>
+
+      <!-- Debrief screen -->
+      <div id="debrief-screen" style="display:none;">
+        <h2 class="debrief-title">Encounter Complete</h2>
+        <div id="debrief-summary"></div>
+        <div id="heatmap-container"></div>
+        <button class="btn-primary" id="restart-btn">Play Again</button>
+      </div>
+    </div>
+  </div>
+</div>
