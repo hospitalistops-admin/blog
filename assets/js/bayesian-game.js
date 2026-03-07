@@ -256,6 +256,9 @@
   let stageChoices = {};
   let simulation = null;
   let bubbleNodes = [];
+  let activeView = "bubbles"; // "bubbles" or "planets"
+  let isFullscreen = false;
+  let planetView = null;
 
   // ── DOM ──
   const $ = (id) => document.getElementById(id);
@@ -269,7 +272,32 @@
     $("start-btn").addEventListener("click", startGame);
     $("details-toggle").addEventListener("click", toggleDetails);
     $("next-btn").addEventListener("click", advanceStage);
-    $("restart-btn").addEventListener("click", () => { resetState(); renderBubbles(); updateCertainty(); showIntro(); });
+    $("restart-btn").addEventListener("click", () => {
+      resetState();
+      renderBubbles();
+      updateCertainty();
+      if (planetView) planetView.update();
+      showIntro();
+    });
+
+    // View toggle
+    $("viz-toggle").addEventListener("click", (e) => {
+      const btn = e.target.closest(".viz-toggle-btn");
+      if (!btn) return;
+      switchView(btn.dataset.view);
+    });
+
+    // Fullscreen
+    $("fullscreen-btn").addEventListener("click", toggleFullscreen);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && isFullscreen) toggleFullscreen();
+    });
+
+    // Resize handler
+    window.addEventListener("resize", () => {
+      if (activeView === "bubbles") renderBubbles();
+      if (planetView) planetView.resize();
+    });
   }
 
   function resetState() {
@@ -277,6 +305,116 @@
     history = [];
     currentStage = -1;
     stageChoices = {};
+  }
+
+  // ── View Switching ──
+  function switchView(view) {
+    if (view === activeView) return;
+    activeView = view;
+
+    $("viz-toggle").querySelectorAll(".viz-toggle-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.view === view);
+    });
+
+    if (view === "bubbles") {
+      $("bubble-container").style.display = "";
+      $("planet-container").style.display = "none";
+      renderBubbles();
+    } else {
+      $("bubble-container").style.display = "none";
+      $("planet-container").style.display = "";
+      if (!planetView) {
+        planetView = createPlanetView();
+      }
+      planetView.update();
+      planetView.resize();
+    }
+  }
+
+  // ── Fullscreen ──
+  function toggleFullscreen() {
+    const panel = $("viz-panel");
+    isFullscreen = !isFullscreen;
+
+    if (isFullscreen) {
+      panel.classList.add("viz-fullscreen");
+
+      // Add close button
+      const closeBtn = document.createElement("button");
+      closeBtn.className = "fullscreen-close";
+      closeBtn.id = "fullscreen-close-btn";
+      closeBtn.innerHTML = "&times;";
+      closeBtn.addEventListener("click", toggleFullscreen);
+      panel.appendChild(closeBtn);
+
+      // Add prob bar
+      const probBar = document.createElement("div");
+      probBar.className = "fullscreen-prob-bar";
+      probBar.id = "fullscreen-prob-bar";
+      panel.appendChild(probBar);
+      updateFullscreenProbBar();
+
+      document.body.style.overflow = "hidden";
+    } else {
+      panel.classList.remove("viz-fullscreen");
+      const closeBtn = $("fullscreen-close-btn");
+      if (closeBtn) closeBtn.remove();
+      const probBar = $("fullscreen-prob-bar");
+      if (probBar) probBar.remove();
+      document.body.style.overflow = "";
+    }
+
+    // Re-render at new dimensions
+    setTimeout(() => {
+      if (activeView === "bubbles") renderBubbles();
+      if (planetView) planetView.resize();
+    }, 50);
+  }
+
+  function updateFullscreenProbBar() {
+    const bar = $("fullscreen-prob-bar");
+    if (!bar) return;
+    const ranked = getRanked();
+    bar.innerHTML = ranked.map(d => {
+      const pct = (posteriors[d.key] * 100).toFixed(1);
+      return `<span class="fullscreen-prob-item">
+        <span class="fullscreen-prob-dot" style="background:${d.color}"></span>
+        ${d.abbr} <span class="fullscreen-prob-pct">${pct}%</span>
+      </span>`;
+    }).join("");
+  }
+
+  // ── Evidence Sensitivity ──
+  function getEvidenceSensitivity() {
+    const nextStageIdx = currentStage + 1;
+    if (nextStageIdx < 0 || nextStageIdx >= STAGES.length) {
+      // No next stage — return uniform sensitivity
+      const result = {};
+      DIAGNOSES.forEach(d => { result[d.key] = 1; });
+      return result;
+    }
+
+    const nextStage = STAGES[nextStageIdx];
+    let questions = [...nextStage.questions];
+    if (nextStage.id === "imaging" && posteriors.pe > 0.15) {
+      questions.push(CTA_QUESTION);
+    }
+
+    const sensitivity = {};
+    DIAGNOSES.forEach(d => {
+      let maxLR = -Infinity, minLR = Infinity;
+      questions.forEach(q => {
+        q.options.forEach(opt => {
+          const lr = opt.lrs[d.key];
+          if (lr > maxLR) maxLR = lr;
+          if (lr < minLR) minLR = lr;
+        });
+      });
+      // Ratio of max to min LR — how much tests could swing this diagnosis
+      sensitivity[d.key] = minLR > 0 ? maxLR / minLR : maxLR;
+    });
+
+    return sensitivity;
   }
 
   // ── Bayes Engine ──
@@ -610,6 +748,11 @@
       updateBubbles();
       updateCertainty();
       renderBars(deltas);
+      if (planetView && activeView === "planets") {
+        planetView.update();
+        planetView.pulse(deltas);
+      }
+      if (isFullscreen) updateFullscreenProbBar();
       checkStageComplete();
     }
   }
@@ -640,11 +783,16 @@
         });
         updateBubbles();
         renderBars(deltas);
+        if (planetView && activeView === "planets") {
+          planetView.update();
+          planetView.pulse(deltas);
+        }
       }
     });
 
     stageChoices[question.id] = labels.join(", ");
     updateCertainty();
+    if (isFullscreen) updateFullscreenProbBar();
     checkStageComplete();
   }
 
@@ -682,6 +830,8 @@
     } else {
       renderStage();
     }
+    // Update planet orbits for new stage's evidence sensitivity
+    if (planetView && activeView === "planets") planetView.update();
   }
 
   // ── Debrief ──
@@ -747,6 +897,224 @@
 
     html += '</tbody></table>';
     container.innerHTML = html;
+  }
+
+  // ── 3D Planet View (Three.js) ──
+  function createPlanetView() {
+    const container = $("planet-container");
+    const canvas = $("planet-canvas");
+    const isMobile = window.innerWidth < 768;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+    camera.position.set(0, 3, 8);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setClearColor(0x050510);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // Bloom post-processing (skip on mobile)
+    let composer = null;
+    if (!isMobile && typeof THREE.EffectComposer !== "undefined") {
+      composer = new THREE.EffectComposer(renderer);
+      const renderPass = new THREE.RenderPass(scene, camera);
+      composer.addPass(renderPass);
+      const bloomPass = new THREE.UnrealBloomPass(
+        new THREE.Vector2(container.clientWidth, container.clientHeight),
+        0.8, 0.4, 0.85
+      );
+      composer.addPass(bloomPass);
+    }
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0x333355, 0.6);
+    scene.add(ambientLight);
+    const pointLight = new THREE.PointLight(0x6366f1, 2, 20);
+    pointLight.position.set(0, 0, 0);
+    scene.add(pointLight);
+
+    // Star field
+    const starGeo = new THREE.BufferGeometry();
+    const starCount = 300;
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount * 3; i++) {
+      starPos[i] = (Math.random() - 0.5) * 40;
+    }
+    starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, transparent: true, opacity: 0.6 });
+    scene.add(new THREE.Points(starGeo, starMat));
+
+    // Center sphere (gravity well)
+    const centerGeo = new THREE.SphereGeometry(0.15, 16, 16);
+    const centerMat = new THREE.MeshStandardMaterial({
+      color: 0x6366f1, emissive: 0x6366f1, emissiveIntensity: 0.8, transparent: true, opacity: 0.9
+    });
+    const centerSphere = new THREE.Mesh(centerGeo, centerMat);
+    scene.add(centerSphere);
+
+    // Planet data
+    const planets = [];
+    const planetGroup = new THREE.Group();
+    scene.add(planetGroup);
+
+    DIAGNOSES.forEach((d, i) => {
+      const angle = (i / DIAGNOSES.length) * Math.PI * 2;
+      const color = new THREE.Color(d.color);
+
+      // Planet mesh
+      const geo = new THREE.SphereGeometry(1, 24, 24);
+      const mat = new THREE.MeshStandardMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 0.3,
+        roughness: 0.6,
+        metalness: 0.2,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      planetGroup.add(mesh);
+
+      // Orbital ring
+      const ringGeo = new THREE.RingGeometry(0.98, 1.02, 64);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: color, transparent: true, opacity: 0.15, side: THREE.DoubleSide
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      planetGroup.add(ring);
+
+      // Canvas label sprite
+      const labelCanvas = document.createElement("canvas");
+      labelCanvas.width = 128;
+      labelCanvas.height = 64;
+      const ctx = labelCanvas.getContext("2d");
+      const texture = new THREE.CanvasTexture(labelCanvas);
+      const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(1.2, 0.6, 1);
+      planetGroup.add(sprite);
+
+      planets.push({
+        key: d.key,
+        abbr: d.abbr,
+        color: d.color,
+        threeColor: color,
+        mesh, ring, sprite, labelCanvas, texture, mat,
+        angle,
+        currentOrbit: 3,
+        targetOrbit: 3,
+        currentSize: 0.3,
+        targetSize: 0.3,
+        pulseIntensity: 0,
+      });
+    });
+
+    function updateLabel(planet, pct) {
+      const ctx = planet.labelCanvas.getContext("2d");
+      ctx.clearRect(0, 0, 128, 64);
+      ctx.textAlign = "center";
+      ctx.fillStyle = planet.color;
+      ctx.font = "bold 22px Inter, sans-serif";
+      ctx.fillText(planet.abbr, 64, 26);
+      ctx.font = "16px JetBrains Mono, monospace";
+      ctx.fillStyle = "#ccccdd";
+      ctx.fillText(pct.toFixed(1) + "%", 64, 48);
+      planet.texture.needsUpdate = true;
+    }
+
+    let animId = null;
+    let rotationAngle = 0;
+
+    function update() {
+      const sensitivity = getEvidenceSensitivity();
+      const maxSens = Math.max(...Object.values(sensitivity), 1);
+
+      planets.forEach(p => {
+        const prob = posteriors[p.key];
+        // Size: sqrt scaling, range 0.1 to 0.7
+        p.targetSize = 0.1 + Math.sqrt(prob) * 0.6;
+
+        // Orbital distance: inverse of normalized sensitivity
+        // High sensitivity → close (orbit 1.2), low sensitivity → far (orbit 4.5)
+        const normSens = sensitivity[p.key] / maxSens; // 0..1
+        p.targetOrbit = 1.2 + (1 - normSens) * 3.3;
+
+        updateLabel(p, prob * 100);
+      });
+    }
+
+    function pulse(deltas) {
+      planets.forEach(p => {
+        const delta = Math.abs(deltas[p.key] || 0);
+        if (delta > 0.01) {
+          p.pulseIntensity = Math.min(1.5, delta * 10);
+        }
+      });
+    }
+
+    function animate() {
+      animId = requestAnimationFrame(animate);
+      rotationAngle += 0.003;
+
+      planets.forEach(p => {
+        // Smooth transitions
+        p.currentSize += (p.targetSize - p.currentSize) * 0.05;
+        p.currentOrbit += (p.targetOrbit - p.currentOrbit) * 0.05;
+
+        // Position on orbit
+        const x = Math.cos(p.angle + rotationAngle) * p.currentOrbit;
+        const z = Math.sin(p.angle + rotationAngle) * p.currentOrbit;
+
+        p.mesh.position.set(x, 0, z);
+        p.mesh.scale.setScalar(p.currentSize);
+
+        // Orbital ring
+        p.ring.scale.set(p.currentOrbit, p.currentOrbit, p.currentOrbit);
+
+        // Label above planet
+        p.sprite.position.set(x, p.currentSize + 0.5, z);
+
+        // Pulse effect (emissive decay)
+        if (p.pulseIntensity > 0.01) {
+          p.mat.emissiveIntensity = 0.3 + p.pulseIntensity;
+          p.pulseIntensity *= 0.95; // decay
+        } else {
+          p.mat.emissiveIntensity = 0.3;
+          p.pulseIntensity = 0;
+        }
+      });
+
+      // Slow camera orbit
+      camera.position.x = Math.sin(rotationAngle * 0.3) * 2;
+      camera.position.z = 8 + Math.cos(rotationAngle * 0.3) * 1;
+      camera.lookAt(0, 0, 0);
+
+      if (composer) {
+        composer.render();
+      } else {
+        renderer.render(scene, camera);
+      }
+    }
+
+    function resize() {
+      const w = container.clientWidth;
+      const h = container.clientHeight || w;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+      if (composer) composer.setSize(w, h);
+    }
+
+    function dispose() {
+      if (animId) cancelAnimationFrame(animId);
+    }
+
+    // Start
+    resize();
+    update();
+    animate();
+
+    return { update, pulse, resize, dispose };
   }
 
   // ── Boot ──

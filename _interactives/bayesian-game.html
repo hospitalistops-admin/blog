@@ -21,8 +21,22 @@ permalink: /interactives/bayesian-game/
   <div class="game-layout">
     <!-- Left panel: visualization -->
     <div class="viz-panel" id="viz-panel">
+      <div class="viz-toolbar">
+        <div class="viz-toggle" id="viz-toggle">
+          <button class="viz-toggle-btn active" data-view="bubbles">Bubbles</button>
+          <button class="viz-toggle-btn" data-view="planets">Planets</button>
+        </div>
+        <button class="fullscreen-btn" id="fullscreen-btn" title="Fullscreen">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/>
+          </svg>
+        </button>
+      </div>
       <div id="bubble-container">
         <svg id="bubble-svg"></svg>
+      </div>
+      <div id="planet-container" style="display:none;">
+        <canvas id="planet-canvas"></canvas>
       </div>
       <div id="certainty-meter">
         <span class="certainty-label">Diagnostic Certainty</span>
